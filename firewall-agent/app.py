@@ -29,6 +29,7 @@ import pathlib
 from typing import Dict, List
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 
@@ -122,6 +123,15 @@ def _ensure_self_signed_cert() -> tuple[str, str]:
 
 
 app = FastAPI(title="firewall-agent")
+
+# Allow UI (browser) to call API from another origin. Lock down via env if needed later.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _apply_allowed_services(services: List[str]) -> Dict[str, List[str]]:
