@@ -17,7 +17,9 @@ if ((cytoscape as any).registeredPopper !== true) {
   (cytoscape as any).registeredPopper = true;
 }
 
-const CytoscapeComponent = dynamic(() => import('react-cytoscapejs'), { ssr: false });
+// TS typings for react-cytoscapejs are not available; cast to any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CytoscapeComponent: any = dynamic(() => import('react-cytoscapejs') as any, { ssr: false }) as any;
 
 export type GraphData = {
   nodes: Array<{ id: string; label: string; type: string; service?: string | null; ips?: string[]; restricted?: boolean; allowed_wan?: boolean }>;
@@ -46,7 +48,8 @@ export function CytoGraph({ data }: { data: GraphData }) {
       elements={elements}
       style={{ width: '100%', height: '100%' }}
       layout={layout}
-      cy={(cy) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cy={(cy: any) => {
         cy.style().fromJson([
           { selector: 'node', style: { 'label': 'data(label)', 'text-valign': 'center', 'color': '#111827', 'font-size': 10, 'text-outline-width': 0, 'width': 18, 'height': 18 } },
           { selector: 'node[type = "network"]', style: { 'shape': 'diamond' } },
@@ -55,7 +58,8 @@ export function CytoGraph({ data }: { data: GraphData }) {
         ]).update();
 
         // Tooltips for containers
-        cy.nodes().forEach((n) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cy.nodes().forEach((n: any) => {
           const type = n.data('type');
           if (type !== 'container') return;
           const ref = n.popperRef();
@@ -64,7 +68,8 @@ export function CytoGraph({ data }: { data: GraphData }) {
           tippy(ref as any, { content, trigger: 'manual', placement: 'top', hideOnClick: false } as Partial<Props>);
         });
 
-        cy.on('tap', 'node', (evt) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cy.on('tap', 'node', (evt: any) => {
           const node = evt.target as any;
           const type = node.data('type');
           // Toggle tooltip
@@ -78,4 +83,3 @@ export function CytoGraph({ data }: { data: GraphData }) {
     />
   );
 }
-
