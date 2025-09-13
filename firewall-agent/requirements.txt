@@ -1,0 +1,8 @@
+# Python dependencies for firewall-agent
+
+fastapi==0.112.2
+uvicorn[standard]==0.30.6
+docker==7.1.0
+cryptography==43.0.1
+requests==2.32.3
+
