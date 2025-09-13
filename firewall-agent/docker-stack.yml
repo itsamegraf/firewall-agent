@@ -7,7 +7,15 @@ services:
     networks:
       - host
     deploy:
-      mode: global
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        parallelism: 1
+        order: stop-first
+        delay: 3s
       restart_policy:
         condition: any
         delay: 5s
