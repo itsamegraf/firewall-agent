@@ -12,9 +12,6 @@ services:
       restart_policy:
         condition: any
         delay: 5s
-      placement:
-        constraints:
-          - node.role == worker
     cap_add:
       - NET_ADMIN
     volumes:
@@ -22,8 +19,8 @@ services:
     environment:
       - FIREWALL_ALLOWED_SERVICES=traefik,jellyfin,gluetun
       - FIREWALL_RESTRICT_LABEL=firewall.restrict
-      - FIREWALL_API_PORT=8443
+      - FIREWALL_API_HOST=0.0.0.0
+      - FIREWALL_API_PORT=9443
       - FIREWALL_LOG_LEVEL=INFO
     # The agent is idempotent and can re-apply at any time.
     # In Swarm, strict service start ordering is not guaranteed.
-
