@@ -5,7 +5,6 @@ services:
     # Dev override for environments where host networking is unavailable (e.g., macOS/Windows Docker Desktop).
     # This publishes the HTTPS API so you can reach it at https://localhost:9443.
     # NOTE: iptables changes in this mode will NOT affect the host; this is for API/UI development only.
-    network_mode: null
+    network_mode: bridge
     ports:
       - "9443:9443"
-
