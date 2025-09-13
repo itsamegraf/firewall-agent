@@ -1,28 +1,25 @@
-name: Build and Push Images
+name: Build and Push UI
 
 on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+    paths:
+      - 'firewall-agent-ui/**'
+      - '.github/workflows/build-ui.yml'
   workflow_dispatch: {}
+
+concurrency:
+  group: build-ui-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Build and push to GHCR
+    name: Build and push firewall-agent-ui
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: firewall-agent
-            context: .
-            dockerfile: firewall-agent/Dockerfile
-          - name: firewall-agent-ui
-            context: .
-            dockerfile: firewall-agent-ui/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+          images: ghcr.io/${{ github.repository_owner }}/firewall-agent-ui
           tags: |
             type=ref,event=branch,branch=main
             type=ref,event=tag
@@ -54,8 +51,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: .
+          file: firewall-agent-ui/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
