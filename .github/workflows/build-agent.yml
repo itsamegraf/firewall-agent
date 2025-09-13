@@ -2,8 +2,13 @@ name: Build and Push Agent
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [ '**' ]
+    tags: [ '**' ]
+    paths:
+      - 'firewall-agent/**'
+      - '.github/workflows/build-agent.yml'
+  pull_request:
+    branches: [ '**' ]
     paths:
       - 'firewall-agent/**'
       - '.github/workflows/build-agent.yml'
@@ -43,10 +48,10 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/firewall-agent
           tags: |
-            type=ref,event=branch,branch=main
+            type=raw,value=latest
+            type=ref,event=branch
             type=ref,event=tag
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 

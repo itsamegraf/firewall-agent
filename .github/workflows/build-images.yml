@@ -2,8 +2,10 @@ name: Build and Push Images
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [ '**' ]
+    tags: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
   workflow_dispatch: {}
 
 jobs:
@@ -47,10 +49,10 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
           tags: |
-            type=ref,event=branch,branch=main
+            type=raw,value=latest
+            type=ref,event=branch
             type=ref,event=tag
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 

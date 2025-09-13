@@ -12,7 +12,7 @@ export type Status = {
   restricted_containers: string[];
 };
 
-export const API_BASE = process.env.NEXT_PUBLIC_FIREWALL_API_URL || "https://localhost:9443";
+export const API_BASE = process.env.NEXT_PUBLIC_FIREWALL_API_URL || "https://localhost:9444";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -30,4 +30,3 @@ export const api = {
   enable: () => req(`/enable`, { method: 'POST' }),
   disable: () => req(`/disable`, { method: 'POST' }),
 };
-
