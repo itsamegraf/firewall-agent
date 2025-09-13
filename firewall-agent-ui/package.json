@@ -13,7 +13,10 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "cytoscape": "3.30.2",
-    "react-cytoscapejs": "1.2.1"
+    "react-cytoscapejs": "1.2.1",
+    "cytoscape-fcose": "2.2.0",
+    "cytoscape-popper": "2.0.0",
+    "tippy.js": "6.3.7"
   },
   "devDependencies": {
     "@types/node": "22.7.5",
@@ -24,4 +27,3 @@
     "eslint-config-next": "14.2.5"
   }
 }
-
