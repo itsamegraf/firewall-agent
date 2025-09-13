@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  firewall-agent:
+    image: YOUR_REGISTRY/YOUR_USER/firewall-agent:latest
+    # Attach to the special host network so iptables rules affect the host netns
+    networks:
+      - host
+    deploy:
+      mode: global
+      restart_policy:
+        condition: any
+        delay: 5s
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - FIREWALL_ALLOWED_SERVICES=traefik,jellyfin,gluetun
+      - FIREWALL_RESTRICT_LABEL=firewall.restrict
+      - FIREWALL_API_HOST=0.0.0.0
+      - FIREWALL_API_PORT=9443
+      - FIREWALL_LOG_LEVEL=INFO
+
+  # Optional UI served via Swarm routing mesh
+  firewall-agent-ui:
+    image: YOUR_REGISTRY/YOUR_USER/firewall-agent-ui:latest
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+    environment:
+      - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9443
+    ports:
+      - target: 3000
+        published: 8080
+        protocol: tcp
+        mode: ingress
+
+networks:
+  host:
+    external: true
+    name: host
+
