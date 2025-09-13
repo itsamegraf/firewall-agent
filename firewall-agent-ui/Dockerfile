@@ -1,20 +1,15 @@
-# Build
-FROM node:20-alpine AS deps
+FROM node:20-alpine
 WORKDIR /app
+
+# Install dependencies (include dev deps for build)
 COPY firewall-agent-ui/package*.json ./
 RUN npm install --no-audit --no-fund
 
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source and build
 COPY firewall-agent-ui/ ./
 RUN npm run build
 
-# Run (standalone output)
-FROM node:20-alpine AS runner
-WORKDIR /app
+# Run the Next.js server directly (no standalone packaging)
 ENV NODE_ENV=production PORT=3000
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
