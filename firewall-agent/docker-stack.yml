@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   firewall-agent:
-    image: ${REGISTRY:-ghcr.io}/${OWNER:-youruser}/firewall-agent:latest
+    image: ${REGISTRY:-ghcr.io}/${OWNER:-youruser}/firewall-agent:${TAG:-latest}
     # Attach to the special host network so iptables rules affect the host netns
     networks:
       - host
@@ -16,6 +16,7 @@ services:
         parallelism: 1
         order: stop-first
         delay: 3s
+      force_update: ${FORCE_UPDATE:-0}
       restart_policy:
         condition: any
         delay: 5s
@@ -42,13 +43,14 @@ services:
 
   # Optional UI served via Swarm routing mesh
   firewall-agent-ui:
-    image: ${REGISTRY:-ghcr.io}/${OWNER:-youruser}/firewall-agent-ui:latest
+    image: ${REGISTRY:-ghcr.io}/${OWNER:-youruser}/firewall-agent-ui:${TAG:-latest}
     deploy:
       mode: replicated
       replicas: 1
       restart_policy:
         condition: any
         delay: 5s
+      force_update: ${FORCE_UPDATE:-0}
     environment:
       - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9444
     ports:
