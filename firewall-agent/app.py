@@ -28,7 +28,7 @@ import os
 import pathlib
 from typing import Dict, List
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -42,9 +42,15 @@ logging.basicConfig(
 )
 log = logging.getLogger("firewall-agent.api")
 
+# In‑memory runtime config (overrides env when set via API)
+CURRENT_ALLOWED_SERVICES: List[str] | None = None
+CURRENT_RESTRICT_LABEL: str | None = None
+API_TOKEN = os.environ.get("FIREWALL_API_TOKEN")
+
 
 def _parse_allowed_services() -> List[str]:
-    raw = os.environ.get("FIREWALL_ALLOWED_SERVICES", "traefik,jellyfin,gluetun")
+    raw_env = os.environ.get("FIREWALL_ALLOWED_SERVICES", "traefik,jellyfin,gluetun")
+    raw = ",".join(CURRENT_ALLOWED_SERVICES) if CURRENT_ALLOWED_SERVICES is not None else raw_env
     parts = [s.strip() for s in raw.split(",") if s.strip()]
     # Deduplicate preserving order
     seen = set()
@@ -57,7 +63,17 @@ def _parse_allowed_services() -> List[str]:
 
 
 def _restrict_label() -> str:
-    return os.environ.get("FIREWALL_RESTRICT_LABEL", "firewall.restrict")
+    return CURRENT_RESTRICT_LABEL or os.environ.get("FIREWALL_RESTRICT_LABEL", "firewall.restrict")
+
+
+def require_auth(authorization: str | None = Header(None)) -> None:
+    if not API_TOKEN:
+        return
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    token = authorization.split(" ", 1)[1]
+    if token != API_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def _tls_paths() -> tuple[str, str]:
@@ -149,7 +165,7 @@ def _apply_allowed_services(services: List[str]) -> Dict[str, List[str]]:
     return {"services": services, "ips": allowed_ips}
 
 
-@app.post("/enable")
+@app.post("/enable", dependencies=[Depends(require_auth)])
 def enable() -> JSONResponse:
     services = _parse_allowed_services()
     # Discover internal Docker network subnets to allow container↔container traffic precisely
@@ -169,7 +185,7 @@ def enable() -> JSONResponse:
     })
 
 
-@app.post("/disable")
+@app.post("/disable", dependencies=[Depends(require_auth)])
 def disable() -> JSONResponse:
     s = fw_disable()
     return JSONResponse({"ok": True, "status": s})
@@ -349,6 +365,85 @@ def topology() -> JSONResponse:
         "allowed_services": services,
         "service_ips": svc_ip_map,
     })
+
+
+@app.get("/containers")
+def containers() -> JSONResponse:
+    restrict_label = _restrict_label()
+    all_containers = docker_client.list_containers()
+    restricted = docker_client.list_restricted_containers(restrict_label)
+    restricted_names = {c.get("name") for c in restricted}
+    return JSONResponse({
+        "ok": True,
+        "count": len(all_containers),
+        "restricted": sorted(n for n in restricted_names if n),
+        "items": all_containers,
+    })
+
+
+@app.post("/policy/reload", dependencies=[Depends(require_auth)])
+def policy_reload() -> JSONResponse:
+    _apply_current_policy()
+    return JSONResponse({"ok": True})
+
+
+@app.post("/allow/service", dependencies=[Depends(require_auth)])
+def allow_service_api(body: Dict[str, str]) -> JSONResponse:
+    name = (body or {}).get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Missing 'name'")
+    res = allow_service(name)
+    return JSONResponse({"ok": True, "result": res})
+
+
+@app.post("/allow/ip", dependencies=[Depends(require_auth)])
+def allow_ip_api(body: Dict[str, str]) -> JSONResponse:
+    ip = (body or {}).get("ip")
+    if not ip:
+        raise HTTPException(status_code=400, detail="Missing 'ip'")
+    res = allow_container(ip)
+    return JSONResponse({"ok": True, "result": res})
+
+
+@app.get("/config")
+def get_config() -> JSONResponse:
+    return JSONResponse({
+        "ok": True,
+        "allowed_services": _parse_allowed_services(),
+        "restrict_label": _restrict_label(),
+        "watch_docker": os.environ.get("FIREWALL_WATCH_DOCKER", "true"),
+        "auto_enable": os.environ.get("FIREWALL_AUTO_ENABLE_ON_START", "true"),
+        "port": int(os.environ.get("FIREWALL_API_PORT", "9444")),
+        "token_configured": bool(API_TOKEN),
+    })
+
+
+@app.patch("/config", dependencies=[Depends(require_auth)])
+def patch_config(body: Dict[str, object]) -> JSONResponse:
+    global CURRENT_ALLOWED_SERVICES, CURRENT_RESTRICT_LABEL
+    changed: Dict[str, object] = {}
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Invalid body")
+    if "allowed_services" in body:
+        val = body.get("allowed_services")
+        if isinstance(val, list) and all(isinstance(s, str) for s in val):
+            CURRENT_ALLOWED_SERVICES = [s.strip() for s in val if s and isinstance(s, str)]
+            changed["allowed_services"] = CURRENT_ALLOWED_SERVICES
+        else:
+            raise HTTPException(status_code=400, detail="allowed_services must be a list of strings")
+    if "restrict_label" in body:
+        val2 = body.get("restrict_label")
+        if isinstance(val2, str) and val2:
+            CURRENT_RESTRICT_LABEL = val2
+            changed["restrict_label"] = CURRENT_RESTRICT_LABEL
+        else:
+            raise HTTPException(status_code=400, detail="restrict_label must be a non-empty string")
+
+    # Optionally re-apply policy
+    if body.get("reapply") in (True, "true", 1, "1"):
+        _apply_current_policy()
+
+    return JSONResponse({"ok": True, "changed": changed})
 
 
 def main() -> None:
