@@ -7,7 +7,7 @@ services:
       dockerfile: firewall-agent-ui/Dockerfile
     image: firewall-agent-ui:local
     environment:
-      - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:8443
+      - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9443
     ports:
       - "8080:3000"
     deploy:
@@ -16,4 +16,3 @@ services:
       restart_policy:
         condition: any
         delay: 5s
-
