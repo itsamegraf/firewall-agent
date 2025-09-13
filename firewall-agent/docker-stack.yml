@@ -27,8 +27,18 @@ services:
       - FIREWALL_ALLOWED_SERVICES=traefik,jellyfin,gluetun
       - FIREWALL_RESTRICT_LABEL=firewall.restrict
       - FIREWALL_API_HOST=0.0.0.0
-      - FIREWALL_API_PORT=9443
+      - FIREWALL_API_PORT=9444
       - FIREWALL_LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD-SHELL", "curl -skf https://127.0.0.1:9444/status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
+    labels:
+      - "org.opencontainers.image.title=firewall-agent"
+      - "org.opencontainers.image.description=Host-level firewall agent managing DOCKER-USER rules for Swarm"
+      - "org.opencontainers.image.source=https://github.com/itsamegraf/firewall-agent"
 
   # Optional UI served via Swarm routing mesh
   firewall-agent-ui:
@@ -40,7 +50,7 @@ services:
         condition: any
         delay: 5s
     environment:
-      - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9443
+      - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9444
     ports:
       - target: 3000
         published: 8080

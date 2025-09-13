@@ -28,7 +28,13 @@ services:
       - FIREWALL_ALLOWED_SERVICES=traefik,jellyfin,gluetun
       - FIREWALL_RESTRICT_LABEL=firewall.restrict
       - FIREWALL_API_HOST=0.0.0.0
-      - FIREWALL_API_PORT=9443
+      - FIREWALL_API_PORT=9444
       - FIREWALL_LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD-SHELL", "curl -skf https://127.0.0.1:9444/status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
     # The agent is idempotent and can re-apply at any time.
     # In Swarm, strict service start ordering is not guaranteed.

@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       iptables iproute2 ca-certificates \
+       iptables iproute2 ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -24,4 +24,3 @@ EXPOSE 8443
 
 # For now, run placeholder server; later this will run FastAPI/uvicorn
 ENTRYPOINT ["python", "-u", "app.py"]
-

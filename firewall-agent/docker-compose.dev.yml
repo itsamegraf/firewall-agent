@@ -7,4 +7,4 @@ services:
     # NOTE: iptables changes in this mode will NOT affect the host; this is for API/UI development only.
     network_mode: bridge
     ports:
-      - "9443:9443"
+      - "9444:9444"
