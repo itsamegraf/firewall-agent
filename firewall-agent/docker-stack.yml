@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   firewall-agent:
-    image: YOUR_REGISTRY/YOUR_USER/firewall-agent:latest
+    image: ${REGISTRY:-ghcr.io}/${OWNER:-youruser}/firewall-agent:latest
     # Attach to the special host network so iptables rules affect the host netns
     networks:
       - host
@@ -24,7 +24,7 @@ services:
 
   # Optional UI served via Swarm routing mesh
   firewall-agent-ui:
-    image: YOUR_REGISTRY/YOUR_USER/firewall-agent-ui:latest
+    image: ${REGISTRY:-ghcr.io}/${OWNER:-youruser}/firewall-agent-ui:latest
     deploy:
       mode: replicated
       replicas: 1
@@ -43,4 +43,3 @@ networks:
   host:
     external: true
     name: host
-
