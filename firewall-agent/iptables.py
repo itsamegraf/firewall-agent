@@ -40,12 +40,15 @@ DOCKER_USER_CHAIN = "DOCKER-USER"
 COMMENT_PREFIX = "firewall-agent"
 
 # Conservative defaults for "internal" destinations allowed for container ↔ container comms.
-PRIVATE_CIDRS = [
+RFC1918_CIDRS = [
     "10.0.0.0/8",
     "172.16.0.0/12",
     "192.168.0.0/16",
-    "169.254.0.0/16",  # link-local
-    "224.0.0.0/4",     # multicast
+]
+ALWAYS_ALLOW_INTERNAL = [
+    "127.0.0.0/8",      # loopback
+    "169.254.0.0/16",   # link-local
+    "224.0.0.0/4",      # multicast
     "255.255.255.255/32",  # broadcast
 ]
 
@@ -110,12 +113,12 @@ def _ensure_chain_and_hook() -> None:
         _iptables(["-I", "FORWARD", "1", "-j", DOCKER_USER_CHAIN, "-m", "comment", "--comment", f"{COMMENT_PREFIX}:hook"], check=True)
 
 
-def reset_rules() -> Dict[str, object]:
+def reset_rules(private_cidrs: Optional[List[str]] = None) -> Dict[str, object]:
     """Flush and set baseline rules with default DROP at end.
 
     Baseline rules:
       - RETURN established/related
-      - RETURN for internal/private destinations
+      - RETURN for internal/private destinations (Docker subnets if provided)
       - DROP everything else (WAN egress blocked unless explicitly allowed)
     """
     _ensure_chain_and_hook()
@@ -131,8 +134,18 @@ def reset_rules() -> Dict[str, object]:
         "-m", "comment", "--comment", f"{COMMENT_PREFIX}:established",
     ], check=True)
 
-    # 2) Allow internal/private destinations (RFC1918 etc.)
-    for cidr in PRIVATE_CIDRS:
+    # 2) Allow internal/private destinations
+    cidrs = list(private_cidrs) if private_cidrs else list(RFC1918_CIDRS)
+    # Always include special-case internal ranges
+    cidrs += ALWAYS_ALLOW_INTERNAL
+    # Deduplicate preserving order
+    seen = set()
+    ordered = []
+    for c in cidrs:
+        if c not in seen:
+            seen.add(c)
+            ordered.append(c)
+    for cidr in ordered:
         _iptables([
             "-A", DOCKER_USER_CHAIN,
             "-d", cidr,

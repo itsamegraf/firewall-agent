@@ -145,6 +145,45 @@ def list_restricted_containers(restrict_label: str) -> List[Dict]:
     return res
 
 
+def list_network_subnets(only_in_use: bool = True) -> List[str]:
+    """Return IPv4 subnets (CIDR) for Docker networks.
+
+    - If only_in_use=True, returns subnets for networks with connected containers.
+    - Otherwise, returns subnets for all networks.
+    """
+    cli = _docker_client()
+    subnets: List[str] = []
+    try:
+        nets = cli.networks.list()
+    except Exception:
+        return subnets
+
+    for net in nets:
+        try:
+            net.reload()
+        except Exception:
+            pass
+        attrs = getattr(net, "attrs", {}) or {}
+        containers = (attrs.get("Containers") or {})
+        if only_in_use and not containers:
+            continue
+        ipam = (attrs.get("IPAM") or {})
+        configs = ipam.get("Config") or []
+        for cfg in configs:
+            subnet = cfg.get("Subnet")
+            if subnet and ":" not in subnet:  # Prefer IPv4 for now
+                subnets.append(subnet)
+
+    # Deduplicate, stable order
+    seen = set()
+    out: List[str] = []
+    for s in subnets:
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
 if __name__ == "__main__":
     # Minimal CLI for debugging
     import argparse

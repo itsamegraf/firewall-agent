@@ -158,7 +158,9 @@ def _apply_allowed_services(services: List[str]) -> Dict[str, List[str]]:
 @app.post("/enable")
 def enable() -> JSONResponse:
     services = _parse_allowed_services()
-    base = reset_rules()
+    # Discover internal Docker network subnets to allow container↔container traffic precisely
+    internal_subnets = docker_client.list_network_subnets(only_in_use=True)
+    base = reset_rules(private_cidrs=internal_subnets)
     allowed = _apply_allowed_services(services)
 
     restrict_label = _restrict_label()
@@ -197,6 +199,69 @@ def status() -> JSONResponse:
         "allowed_services": allowed_map,
         "restricted_containers": [c.get("name") for c in restricted],
     })
+
+
+# Optional: background Docker events watcher to auto-apply policy
+import threading
+import time
+
+_watch_thread: threading.Thread | None = None
+_watch_running = False
+
+
+def _apply_current_policy() -> None:
+    try:
+        services = _parse_allowed_services()
+        internal_subnets = docker_client.list_network_subnets(only_in_use=True)
+        reset_rules(private_cidrs=internal_subnets)
+        _apply_allowed_services(services)
+        log.info("Policy reapplied: subnets=%s services=%s", internal_subnets, services)
+    except Exception as e:
+        log.warning("Failed to apply policy: %s", e)
+
+
+def _watch_events_loop():
+    global _watch_running
+    _watch_running = True
+    try:
+        cli = docker_client._docker_client()  # type: ignore[attr-defined]
+        events = cli.api.events(decode=True)  # type: ignore[attr-defined]
+        last_apply = 0.0
+        debounce = float(os.environ.get("FIREWALL_APPLY_DEBOUNCE_SECONDS", "3"))
+        for ev in events:
+            if not _watch_running:
+                break
+            if not isinstance(ev, dict):
+                continue
+            typ = ev.get("Type")
+            act = ev.get("Action")
+            if typ in ("container", "network") and act in ("start", "die", "connect", "disconnect", "update"):
+                now = time.time()
+                if now - last_apply >= debounce:
+                    _apply_current_policy()
+                    last_apply = now
+    except Exception as e:
+        log.warning("Docker events watcher stopped: %s", e)
+    finally:
+        _watch_running = False
+
+
+@app.on_event("startup")
+def _on_start() -> None:
+    # Optionally auto-apply on start and watch events
+    if os.environ.get("FIREWALL_AUTO_ENABLE_ON_START", "true").lower() in ("1", "true", "yes", "on"):
+        _apply_current_policy()
+    if os.environ.get("FIREWALL_WATCH_DOCKER", "true").lower() in ("1", "true", "yes", "on"):
+        global _watch_thread
+        if _watch_thread is None or not _watch_thread.is_alive():
+            _watch_thread = threading.Thread(target=_watch_events_loop, name="fw-docker-watch", daemon=True)
+            _watch_thread.start()
+
+
+@app.on_event("shutdown")
+def _on_stop() -> None:
+    global _watch_running
+    _watch_running = False
 
 
 @app.get("/topology")
