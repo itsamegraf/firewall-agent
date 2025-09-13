@@ -189,6 +189,91 @@ def status() -> JSONResponse:
     })
 
 
+@app.get("/topology")
+def topology() -> JSONResponse:
+    """Return a graph-friendly topology summary for UI visualization.
+
+    Includes:
+      - nodes: containers (with service, labels), networks, and a WAN node
+      - edges: container->network, container->WAN (allowed or blocked)
+      - per-container flags: allowed_wan, restricted
+    """
+    restrict_label = _restrict_label()
+    containers = docker_client.list_containers()
+    s = fw_status()
+    allowed_ips = set(s.get("allow_ips") or [])
+    services = _parse_allowed_services()
+
+    # Build service->IPs map using docker client
+    svc_ip_map = {svc: docker_client.resolve_service_ips(svc) for svc in services}
+    svc_ip_set = {svc: set(ips) for svc, ips in svc_ip_map.items()}
+
+    networks = set()
+    nodes = []
+    edges = []
+
+    for item in containers:
+        name = item.get("name")
+        ips = item.get("ips") or []
+        svc = item.get("service")
+        labels = item.get("labels") or {}
+        nets = item.get("networks") or {}
+        for n in nets.keys():
+            networks.add(n)
+
+        is_restricted = str(labels.get(restrict_label, "")).strip().lower() in ("1", "true", "yes", "on", "enable", "enabled")
+
+        # Determine WAN allowance: if any IP is explicitly allowed or part of an allowed service's IPs
+        allowed_wan = any(ip in allowed_ips for ip in ips)
+        if not allowed_wan and svc in svc_ip_set:
+            allowed_wan = any(ip in svc_ip_set[svc] for ip in ips) or (svc in services)
+
+        nodes.append({
+            "type": "container",
+            "id": name,
+            "label": name,
+            "service": svc,
+            "ips": ips,
+            "restricted": is_restricted,
+            "allowed_wan": bool(allowed_wan),
+        })
+
+        # Edges to networks
+        for net_name, ip in nets.items():
+            edges.append({
+                "from": name,
+                "to": f"net:{net_name}",
+                "type": "link",
+            })
+
+        # Edge to WAN (allowed/blocked)
+        edges.append({
+            "from": name,
+            "to": "wan",
+            "type": "wan",
+            "allowed": bool(allowed_wan),
+        })
+
+    # Add network nodes
+    for n in sorted(networks):
+        nodes.append({
+            "type": "network",
+            "id": f"net:{n}",
+            "label": n,
+        })
+
+    # Add WAN node
+    nodes.append({"type": "wan", "id": "wan", "label": "WAN"})
+
+    return JSONResponse({
+        "ok": True,
+        "nodes": nodes,
+        "edges": edges,
+        "allowed_services": services,
+        "service_ips": svc_ip_map,
+    })
+
+
 def main() -> None:
     host = os.environ.get("FIREWALL_API_HOST", "0.0.0.0")
     port = int(os.environ.get("FIREWALL_API_PORT", "8443"))
