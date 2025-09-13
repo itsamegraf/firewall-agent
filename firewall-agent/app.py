@@ -122,16 +122,10 @@ def _ensure_self_signed_cert() -> tuple[str, str]:
     return cert_path, key_path
 
 
-app = FastAPI(title="firewall-agent")
+from contextlib import asynccontextmanager
 
-# Allow UI (browser) to call API from another origin. Lock down via env if needed later.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_watch_thread: threading.Thread | None = None
+_watch_running = False
 
 
 def _apply_allowed_services(services: List[str]) -> Dict[str, List[str]]:
@@ -205,9 +199,6 @@ def status() -> JSONResponse:
 import threading
 import time
 
-_watch_thread: threading.Thread | None = None
-_watch_running = False
-
 
 def _apply_current_policy() -> None:
     try:
@@ -245,10 +236,9 @@ def _watch_events_loop():
     finally:
         _watch_running = False
 
-
-@app.on_event("startup")
-def _on_start() -> None:
-    # Optionally auto-apply on start and watch events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     if os.environ.get("FIREWALL_AUTO_ENABLE_ON_START", "true").lower() in ("1", "true", "yes", "on"):
         _apply_current_policy()
     if os.environ.get("FIREWALL_WATCH_DOCKER", "true").lower() in ("1", "true", "yes", "on"):
@@ -256,12 +246,24 @@ def _on_start() -> None:
         if _watch_thread is None or not _watch_thread.is_alive():
             _watch_thread = threading.Thread(target=_watch_events_loop, name="fw-docker-watch", daemon=True)
             _watch_thread.start()
+    try:
+        yield
+    finally:
+        # Shutdown
+        global _watch_running
+        _watch_running = False
 
 
-@app.on_event("shutdown")
-def _on_stop() -> None:
-    global _watch_running
-    _watch_running = False
+app = FastAPI(title="firewall-agent", lifespan=lifespan)
+
+# Allow UI (browser) to call API from another origin. Lock down via env if needed later.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/topology")
@@ -351,7 +353,7 @@ def topology() -> JSONResponse:
 
 def main() -> None:
     host = os.environ.get("FIREWALL_API_HOST", "0.0.0.0")
-    port = int(os.environ.get("FIREWALL_API_PORT", "8443"))
+    port = int(os.environ.get("FIREWALL_API_PORT", "9444"))
     cert_path, key_path = _ensure_self_signed_cert()
     log.info("Starting firewall-agent API on %s:%s", host, port)
     uvicorn.run(
