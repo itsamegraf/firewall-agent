@@ -20,7 +20,7 @@ RUN pip install -r /app/requirements.txt
 COPY firewall-agent/ /app/
 
 # API port (configurable via FIREWALL_API_PORT)
-EXPOSE 8443
+EXPOSE 9444
 
 # For now, run placeholder server; later this will run FastAPI/uvicorn
 ENTRYPOINT ["python", "-u", "app.py"]

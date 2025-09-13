@@ -16,7 +16,7 @@ Features
 Dev
 ```
 npm install
-NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:8443 npm run dev
+NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9444 npm run dev
 ```
 
 Prod build
@@ -28,6 +28,5 @@ npm start
 Docker
 ```
 docker build -t firewall-agent-ui -f firewall-agent-ui/Dockerfile .
-docker run -e NEXT_PUBLIC_FIREWALL_API_URL=https://api-host:8443 -p 8080:3000 firewall-agent-ui
+docker run -e NEXT_PUBLIC_FIREWALL_API_URL=https://api-host:9444 -p 8080:3000 firewall-agent-ui
 ```
-

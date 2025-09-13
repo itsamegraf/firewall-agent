@@ -14,7 +14,7 @@ Configuration (env vars):
   - FIREWALL_ALLOWED_SERVICES  (default: "traefik,jellyfin,gluetun")
   - FIREWALL_RESTRICT_LABEL    (default: "firewall.restrict")
   - FIREWALL_API_HOST          (default: "0.0.0.0")
-  - FIREWALL_API_PORT          (default: 8443)
+  - FIREWALL_API_PORT          (default: 9444)
   - FIREWALL_TLS_CERT          (default: "/app/certs/server.crt")
   - FIREWALL_TLS_KEY           (default: "/app/certs/server.key")
   - FIREWALL_TLS_AUTO          (default: "true")
