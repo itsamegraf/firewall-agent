@@ -55,7 +55,7 @@ services:
       - NEXT_PUBLIC_FIREWALL_API_URL=https://localhost:9444
     ports:
       - target: 3000
-        published: 8080
+        published: 9445
         protocol: tcp
         mode: ingress
 
