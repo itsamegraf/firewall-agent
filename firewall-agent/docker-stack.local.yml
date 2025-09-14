@@ -1,0 +1,19 @@
+version: "3.8"
+
+# Local override to use images you build on the node
+# Build locally:
+#   docker build -t firewall-agent:local -f firewall-agent/Dockerfile .
+#   docker build -t firewall-agent-ui:local -f firewall-agent-ui/Dockerfile .
+# Deploy with override (keeps all other settings from docker-stack.yml):
+#   docker stack deploy -c firewall-agent/docker-stack.yml -c firewall-agent/docker-stack.local.yml firewall-agent
+# If tasks don't update, add FORCE_UPDATE=1 env to the base deploy or run:
+#   docker service update --force firewall-agent_firewall-agent
+#   docker service update --force firewall-agent_firewall-agent-ui
+
+services:
+  firewall-agent:
+    image: firewall-agent:local
+
+  firewall-agent-ui:
+    image: firewall-agent-ui:local
+
