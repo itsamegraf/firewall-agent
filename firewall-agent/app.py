@@ -42,6 +42,18 @@ logging.basicConfig(
 )
 log = logging.getLogger("firewall-agent.api")
 
+# Instantiate FastAPI early so decorators can bind to it
+app = FastAPI(title="firewall-agent")
+
+# Allow UI (browser) to call API from another origin. Lock down via env if needed later.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # In‑memory runtime config (overrides env when set via API)
 CURRENT_ALLOWED_SERVICES: List[str] | None = None
 CURRENT_RESTRICT_LABEL: str | None = None
@@ -270,16 +282,8 @@ async def lifespan(app: FastAPI):
         _watch_running = False
 
 
-app = FastAPI(title="firewall-agent", lifespan=lifespan)
-
-# Allow UI (browser) to call API from another origin. Lock down via env if needed later.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Attach lifespan to the already-created app
+app.router.lifespan_context = lifespan
 
 
 @app.get("/topology")
